@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
 static int fd;
 static   unsigned char receive_buffer[100];//用来保存接收的完整数据包
 static void *receiveThread(void *arg);
@@ -14,14 +15,23 @@ static void *receiveThread(void *arg);
 pthread_t tWSNInit(void (*handlerDataFunc)(unsigned char *data))
 {
     pthread_t tid;
-    struct termios newTermios;
-    fd=open("/dev/s3c2410_serial3",O_RDWR);
-    cfmakeraw(&newTermios);
-    cfsetspeed(&newTermios,B115200);
-    newTermios.c_cc[VTIME]=0;
-    newTermios.c_cc[VMIN]=1;
+    int fd_console;
+    struct termios uart_cfg;
+    fd_console = open("/dev/ttySAC1",O_RDONLY);
+    ioctl( fd_console, TIOCCONS );
+    close( fd_console);
+    fd=open("/dev/ttySAC0",O_RDWR);
+    if(fd<0)
+    {
+        perror("Failed to open serial:");
+        return -1;
+    }
+    cfmakeraw(&uart_cfg);
+    cfsetspeed(&uart_cfg,B115200);
+    uart_cfg.c_cc[VTIME]=0;
+    uart_cfg.c_cc[VMIN]=1;
     tcflush(fd,TCIOFLUSH);
-    tcsetattr(fd,TCSANOW,&newTermios);
+    tcsetattr(fd,TCSANOW,&uart_cfg);
     pthread_create(&tid,NULL,receiveThread,handlerDataFunc);
     return tid;
 }
@@ -49,32 +59,32 @@ void tWSNSendData(unsigned char *buf,int length)
 */
 void *receiveThread(void *arg)
 {
-     void (*pFunc)(unsigned char *) = ( void (*)(unsigned char *))arg;
-     while(1)
-     {
-         unsigned char tmp;
-         int i=0;
-         int length;
-         int ret;
-         ret=read(fd,&tmp,1);
-         if(ret<0)
-         {
-             perror("error:");
-             continue;
-         }
-         if(tmp==0xfc)
-         {
-             read(fd,&tmp,1);
-             receive_buffer[i++]=tmp;
-             read(fd,&tmp,1);
-             receive_buffer[i++]=tmp;
-             length=tmp;
-             for(;length>0;length--)
-             {
-                 read(fd,&tmp,1);
-                 receive_buffer[i++]=tmp;
-             }
-             pFunc(receive_buffer);
-         }
-     }
+    void (*pFunc)(unsigned char *) = ( void (*)(unsigned char *))arg;
+    while(1)
+    {
+        unsigned char tmp;
+        int i=0;
+        int length;
+        int ret;
+        ret=read(fd,&tmp,1);
+        if(ret<0)
+        {
+            perror("error:");
+            continue;
+        }
+        if(tmp==0xfc)
+        {
+            read(fd,&tmp,1);
+            receive_buffer[i++]=tmp;
+            read(fd,&tmp,1);
+            receive_buffer[i++]=tmp;
+            length=tmp;
+            for(;length>0;length--)
+            {
+                read(fd,&tmp,1);
+                receive_buffer[i++]=tmp;
+            }
+            pFunc(receive_buffer);
+        }
+    }
 }
