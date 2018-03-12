@@ -39,11 +39,12 @@ void tWSNExit(void)
 /*
  把buf地址开始的length个字节通过串口发送给协调器
 */
-void tWSNSendData(unsigned char *buf,int length)
+void tWSNSendData(unsigned char *buf)
 {
-    write(fd,buf,length);//不要书写成write(fd,buf,strlen(buf));
+    printf("lightId=%d,light-command=%s.\n",buf[2],buf[3]?"on":"off");
+    printf("Ready to send sensor net!\n");
+    write(fd,buf+2,buf[1]);
 }
-
 /*
  接收线程入口函数
 */
