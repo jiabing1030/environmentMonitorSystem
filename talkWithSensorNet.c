@@ -15,18 +15,14 @@ static void *receiveThread(void *arg);
 pthread_t tWSNInit(void (*handlerDataFunc)(unsigned char *data))
 {
     pthread_t tid;
-    int fd_console;
     struct termios uart_cfg;
-    fd_console = open("/dev/ttySAC1",O_RDONLY);
-    ioctl( fd_console, TIOCCONS );
-    close( fd_console);
-    fd=open("/dev/ttySAC0",O_RDWR);
+    fd=open("/dev/ttyUSB0",O_RDWR);
     if(fd<0)
     {
         perror("Failed to open serial:");
         return -1;
     }
-    cfmakeraw(&uart_cfg);
+   cfmakeraw(&uart_cfg);
     cfsetspeed(&uart_cfg,B115200);
     uart_cfg.c_cc[VTIME]=0;
     uart_cfg.c_cc[VMIN]=1;
@@ -35,7 +31,6 @@ pthread_t tWSNInit(void (*handlerDataFunc)(unsigned char *data))
     pthread_create(&tid,NULL,receiveThread,handlerDataFunc);
     return tid;
 }
-
 
 /*
  模块退出时做些善后工作
@@ -67,6 +62,7 @@ void *receiveThread(void *arg)
         int length;
         int ret;
         ret=read(fd,&tmp,1);
+        printf("tmp=0x%02x\n",tmp);
         if(ret<0)
         {
             perror("error:");
@@ -75,13 +71,16 @@ void *receiveThread(void *arg)
         if(tmp==0xfc)
         {
             read(fd,&tmp,1);
+                    printf("tmp=0x%02x\n",tmp);
             receive_buffer[i++]=tmp;
             read(fd,&tmp,1);
+                    printf("tmp=0x%02x\n",tmp);
             receive_buffer[i++]=tmp;
             length=tmp;
             for(;length>0;length--)
             {
                 read(fd,&tmp,1);
+                        printf("tmp=0x%02x\n",tmp);
                 receive_buffer[i++]=tmp;
             }
             pFunc(receive_buffer);
